@@ -1,8 +1,8 @@
-# 🔐 Secure Vault: Hybrid Encryption & Digital Signatures
+# Bóveda Secreta
 
-Este proyecto es una prueba de concepto (PoC) de un sistema de **mensajería y almacenamiento seguro** ("Bóveda") desarrollado en Node.js. Implementa estándares criptográficos modernos para garantizar la confidencialidad, autenticidad, integridad y no repudio de la información.
+Este proyecto es una prueba de concepto de un sistema de **mensajería y almacenamiento seguro** ("Bóveda") desarrollado en Node.js. Implementa estándares criptográficos modernos para garantizar la confidencialidad, autenticidad, integridad y no repudio de la información.
 
-## 🚀 Características Principales
+## Características Principales
 
 El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Cola") a un servidor, asegurando el flujo completo:
 
@@ -17,14 +17,14 @@ El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Co
 * **Datos en Reposo:**
     * El servidor vuelve a cifrar los datos antes de guardarlos en la base de datos interna usando una llave derivada con **Scrypt**.
 
-## 🛠️ Tecnologías
+## Tecnologías
 
 * **Runtime:** Node.js
 * **API:** Express
 * **Criptografía:** Módulo nativo `crypto`, `bcrypt`
 * **Cliente HTTP:** Axios
 
-## 📋 Flujo de Ejecución
+## Flujo de Ejecución
 
 1.  **Registro:** El cliente se registra y genera un par de llaves ECC (para firmar).
 2.  **Handshake:** El cliente obtiene la Llave Pública RSA del servidor.
@@ -40,12 +40,12 @@ El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Co
     * Verifica la firma contra la llave pública del usuario.
     * Si es válido, cifra el dato nuevamente y lo guarda en la BD.
 
-## 📦 Instalación y Uso
+## Instalación y Uso
 
 1.  **Clonar el repositorio**
     ```bash
-    git clone [https://github.com/TU_USUARIO/Secure-Vault-Hybrid-Crypto.git](https://github.com/TU_USUARIO/Secure-Vault-Hybrid-Crypto.git)
-    cd Secure-Vault-Hybrid-Crypto
+    git clone https://github.com/IrvingYael05/Boveda-Secreta.git
+    cd Boveda-Secreta
     ```
 
 2.  **Instalar dependencias**
@@ -65,10 +65,10 @@ El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Co
     node client.js
     ```
 
-## 🛡️ Notas de Seguridad
+## Notas de Seguridad
 
 * Las llaves RSA del servidor se generan automáticamente en la carpeta `./keys` si no existen.
 * **Importante:** En un entorno de producción real, las llaves privadas nunca deben estar expuestas ni generarse en tiempo de ejecución sin gestión segura (KMS).
 
 ---
-**Autor:** [Tu Nombre]
+**Autor:** Irving Yael Vázquez Serrano
