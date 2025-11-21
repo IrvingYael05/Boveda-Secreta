@@ -65,6 +65,37 @@ El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Co
     node client.js
     ```
 
+## 📊 Diagrama de Secuencia
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente (Directivo)
+    participant S as Servidor (Bóveda)
+    
+    Note over C,S: Fase 1: Preparación (Cliente)
+    C->>C: Genera Llave AES Temporal (Random 32 bytes)
+    C->>C: Cifra Secreto con AES-256 (Payload)
+    C->>C: Cifra Llave AES con RSA Pública del Servidor (Sobre)
+    C->>C: Firma el Secreto original con su Llave Privada (ECC)
+    
+    Note over C,S: Fase 2: Envío Seguro
+    C->>S: POST /api/vault/save (Key Cifrada + Data Cifrada + Firma)
+    
+    Note over C,S: Fase 3: Recepción y Verificación (Servidor)
+    S->>S: Descifra Llave AES usando RSA Privada Servidor
+    S->>S: Descifra Data usando la Llave AES recuperada
+    S->>S: Verifica Firma con Llave Pública del Usuario
+    
+    Note over S: Fase 4: Almacenamiento
+    alt Firma Válida
+        S->>S: Recifra Data con Llave de BD (Storage Key)
+        S->>DB: Guarda (Data Cifrada + IV + Firma)
+        S-->>C: 200 OK
+    else Firma Inválida
+        S-->>C: 403 Forbidden
+    end
+```
+
 ## Notas de Seguridad
 
 * Las llaves RSA del servidor se generan automáticamente en la carpeta `./keys` si no existen.
