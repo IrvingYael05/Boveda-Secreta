@@ -1,44 +1,51 @@
-# Bóveda Secreta
+# Bóveda Corporativa Segura
 
-Este proyecto es una prueba de concepto de un sistema de **mensajería y almacenamiento seguro** ("Bóveda") desarrollado en Node.js. Implementa estándares criptográficos modernos para garantizar la confidencialidad, autenticidad, integridad y no repudio de la información.
+Este proyecto es una implementación de un sistema de **mensajería y almacenamiento seguro** ("Bóveda") desarrollado con una arquitectura Cliente-Servidor. Utiliza una interfaz web moderna que implementa cifrado *Client-Side* (en el navegador) para garantizar que los secretos viajen y se almacenen de forma segura.
+
+Garantiza los pilares de seguridad: **Confidencialidad, Autenticidad, Integridad y No Repudio**.
 
 ## Características Principales
 
-El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Cola") a un servidor, asegurando el flujo completo:
+El sistema permite a un usuario (ej. Directivo) enviar un secreto industrial al servidor, asegurando el flujo completo mediante:
 
 * **Cifrado Híbrido (Sobre Digital):**
-    * Uso de **AES-256-CBC** para cifrar el mensaje (simétrico/rápido).
-    * Uso de **RSA-2048** para cifrar la llave AES (asimétrico/seguro).
+    * **Simétrico:** Uso de **AES-256-CBC** (generado en el navegador) para cifrar el mensaje.
+    * **Asimétrico:** Uso de **RSA-OAEP** (2048 bits) para cifrar la llave AES y enviarla al servidor de forma segura.
 * **Firma Digital (No Repudio):**
-    * Uso de Curvas Elípticas (**ECC secp256k1**) para firmar el mensaje original.
-    * El servidor verifica la firma para garantizar que el mensaje viene del usuario legítimo y no ha sido alterado.
-* **Seguridad de Contraseñas:**
-    * Hashing con **Bcrypt** y Salt para el almacenamiento de credenciales.
+    * Uso de **RSA-SHA256** (RSASSA-PKCS1-v1_5) para firmar el mensaje original.
+    * El servidor verifica la firma criptográfica para garantizar que el mensaje proviene del usuario autenticado y no ha sido modificado en tránsito.
+* **Seguridad Client-Side (End-to-End):**
+    * Uso de la **Web Crypto API** nativa. Los datos salen del navegador ya cifrados; el texto plano nunca toca la red.
 * **Datos en Reposo:**
-    * El servidor vuelve a cifrar los datos antes de guardarlos en la base de datos interna usando una llave derivada con **Scrypt**.
+    * El servidor vuelve a cifrar los datos antes de guardarlos en la base de datos interna usando una llave maestra derivada con **Scrypt** y un IV único por registro.
 
-## Tecnologías
+## Stack Tecnológico
 
-* **Runtime:** Node.js
-* **API:** Express
-* **Criptografía:** Módulo nativo `crypto`, `bcrypt`
-* **Cliente HTTP:** Axios
+* **Frontend:** HTML5, Tailwind CSS, JavaScript (Web Crypto API, Fetch API).
+* **Backend:** Node.js, Express.
+* **Criptografía:**
+    * *Browser:* `window.crypto.subtle` (Estándar W3C).
+    * *Server:* Módulo nativo `crypto` de Node.js.
+* **Hashing:** `bcrypt` (para contraseñas).
 
 ## Flujo de Ejecución
 
-1.  **Registro:** El cliente se registra y genera un par de llaves ECC (para firmar).
-2.  **Handshake:** El cliente obtiene la Llave Pública RSA del servidor.
-3.  **Preparación del Payload:**
-    * Se genera una llave aleatoria AES.
+1.  **Registro:** El usuario crea una cuenta. La contraseña se almacena hasheada (Bcrypt).
+2.  **Login y Handshake:**
+    * Al iniciar sesión, el servidor genera dinámicamente un par de llaves RSA para la sesión.
+    * Envía la **Llave Privada** al cliente (para firmar) y retiene la Pública (para verificar).
+    * El cliente solicita la Llave Pública del Servidor (para cifrar el sobre).
+3.  **Preparación del Payload (En el Navegador):**
+    * Se genera una llave efímera AES-256.
     * Se cifra el secreto con AES.
-    * Se cifra la llave AES con la Pública RSA del servidor (Encapsulamiento).
-    * Se firma el secreto original con la Privada ECC del cliente.
-4.  **Envío:** Se envían los datos cifrados y la firma al servidor.
+    * Se cifra la llave AES con la Pública del Servidor (Sobre Digital).
+    * Se firma el secreto original con la Privada del Usuario.
+4.  **Envío:** Se envían al servidor: `[Llave AES Cifrada] + [Data Cifrada] + [Firma] + [IV]`.
 5.  **Recepción y Verificación:**
-    * El servidor descifra la llave AES (usando su Privada RSA).
-    * Descifra el mensaje.
-    * Verifica la firma contra la llave pública del usuario.
-    * Si es válido, cifra el dato nuevamente y lo guarda en la BD.
+    * El servidor abre el sobre digital (usa su Privada RSA).
+    * Descifra el mensaje (usa la llave AES recuperada).
+    * Verifica la firma contra la llave pública del usuario en sesión.
+    * Si es válido, recifra el dato con la llave de la BD y lo almacena.
 
 ## Instalación y Uso
 
@@ -50,62 +57,62 @@ El sistema simula un cliente enviando un secreto (ej. "La fórmula de la Coca-Co
 
 2.  **Instalar dependencias**
     ```bash
-    npm install express axios bcrypt cors
+    npm install express bcrypt cors
     ```
 
 3.  **Ejecutar el Servidor**
-    En una terminal:
     ```bash
     node server.js
     ```
+    Verás el mensaje: `Servidor corriendo en http://localhost:3000`
 
-4.  **Ejecutar el Cliente (Prueba)**
-    En otra terminal:
-    ```bash
-    node client.js
-    ```
+4.  **Usar la Aplicación**
+    * Abre tu navegador web e ingresa a: **`http://localhost:3000`**
+    * Registra un usuario.
+    * Inicia sesión.
+    * Escribe un secreto y presiona "Proteger y Enviar".
+    * Observa los logs de seguridad en la consola visual de la derecha.
 
 ## 📊 Diagrama de Secuencia
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente (Directivo)
-    participant S as Servidor (Bóveda)
+    participant C as Cliente (Navegador)
+    participant S as Servidor (API)
+    participant DB as Base de Datos (Memoria)
 
-    Note over C,S: Fase 0: Handshake y Llaves
+    Note over C,DB: Fase 0: Registro y Autenticación (Handshake)
     C->>S: POST /api/register (Usuario + Password)
-    S-->>C: Retorna userPrivateKey (Para firmar)
+    S-->>C: 200 OK (Usuario registrado, sin llaves)
+    
+    C->>S: POST /api/login (Usuario + Password)
+    Note right of S: Genera Par de Llaves RSA<br/>para esta sesión específica
+    S->>DB: Actualiza user.publicKey en memoria
+    S-->>C: Retorna userPrivateKey + 200 OK
+
     C->>S: GET /api/server-public-key
-    S-->>C: Retorna SERVER_PUBLIC_KEY (Para cifrar sobre)
+    S-->>C: Retorna SERVER_PUBLIC_KEY
 
     Note over C,S: Fase 1: Preparación del Payload (Cliente)
-    C->>C: Genera Llave AES Temporal (Random 32 bytes)
-    C->>C: Cifra Secreto con AES-256 (Payload)
-    C->>C: Cifra Llave AES con RSA Pública del Servidor (Sobre)
-    C->>C: Firma el Secreto original con userPrivateKey (ECC)
-    
+    C->>C: Genera Llave AES-256 Temporal (Simétrica)
+    C->>C: Cifra el Secreto con la Llave AES
+    C->>C: Cifra la Llave AES con RSA Pública del Servidor (Sobre Digital)
+    C->>C: Firma el Secreto ORIGINAL con userPrivateKey (RSA-SHA256)
+
     Note over C,S: Fase 2: Envío Seguro
     C->>S: POST /api/vault/save (Key Cifrada + Data Cifrada + Firma)
-    
-    Note over C,S: Fase 3: Recepción y Verificación (Servidor)
-    S->>S: Descifra Llave AES usando RSA Privada Servidor
+
+    Note over S,DB: Fase 3: Recepción y Verificación
+    S->>S: Descifra Llave AES usando RSA Privada del Servidor
     S->>S: Descifra Data usando la Llave AES recuperada
-    S->>S: Verifica Firma con Llave Pública del Usuario (en BD)
-    
-    Note over S: Fase 4: Almacenamiento
+    S->>DB: Consulta user.publicKey del usuario
+    S->>S: Verifica Firma Digital sobre el texto plano recuperado
+
+    Note over S,DB: Fase 4: Almacenamiento Seguro
     alt Firma Válida
-        S->>S: Recifra Data con Llave de BD (Storage Key)
+        S->>S: Cifra Data con Llave Maestra de BD (AES-Storage-Key)
         S->>DB: Guarda (Data Cifrada + IV + Firma)
         S-->>C: 200 OK (Secreto resguardado)
     else Firma Inválida
         S-->>C: 403 Forbidden (Integridad comprometida)
     end
-```
-
-## Notas de Seguridad
-
-* Las llaves RSA del servidor se generan automáticamente en la carpeta `./keys` si no existen.
-* **Importante:** En un entorno de producción real, las llaves privadas nunca deben estar expuestas ni generarse en tiempo de ejecución sin gestión segura (KMS).
-
----
-**Autor:** Irving Yael Vázquez Serrano

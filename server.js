@@ -8,61 +8,70 @@ const path = require("path");
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static("public"));
+
+// Archivos estáticos (FRONTEND)
+app.use(express.static(path.join(__dirname, "public")));
 
 // ==========================================
-// Gestión de Llaves (RSA Servidor)
+// 1. GESTIÓN DE LLAVES (RSA SERVIDOR)
 // ==========================================
-if (!fs.existsSync("./keys/server-private.pem")) {
-  if (!fs.existsSync("./keys")) fs.mkdirSync("./keys");
+const KEYS_DIR = "./keys";
+if (!fs.existsSync(KEYS_DIR)) fs.mkdirSync(KEYS_DIR);
 
+const PRIVATE_KEY_PATH = path.join(KEYS_DIR, "server-private.pem");
+const PUBLIC_KEY_PATH = path.join(KEYS_DIR, "server-public.pem");
+
+if (!fs.existsSync(PRIVATE_KEY_PATH)) {
+  console.log("Generando llaves RSA del servidor...");
   const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 2048,
     publicKeyEncoding: { type: "spki", format: "pem" },
     privateKeyEncoding: { type: "pkcs8", format: "pem" },
   });
-  fs.writeFileSync("./keys/server-private.pem", privateKey);
-  fs.writeFileSync("./keys/server-public.pem", publicKey);
+  fs.writeFileSync(PRIVATE_KEY_PATH, privateKey);
+  fs.writeFileSync(PUBLIC_KEY_PATH, publicKey);
 }
 
-const SERVER_PRIVATE_KEY = fs.readFileSync("./keys/server-private.pem", "utf8");
-const SERVER_PUBLIC_KEY = fs.readFileSync("./keys/server-public.pem", "utf8");
+const SERVER_PRIVATE_KEY = fs.readFileSync(PRIVATE_KEY_PATH, "utf8");
+const SERVER_PUBLIC_KEY = fs.readFileSync(PUBLIC_KEY_PATH, "utf8");
 
+// Llave maestra para cifrado en reposo
 const DB_STORAGE_KEY = crypto.scryptSync(
-  "secreto_super_seguro_del_servidor",
-  "salt",
+  "secreto_maestro_servidor",
+  "salt_fijo_demo",
   32
 );
 
-// Base de datos volátil
+// Base de datos en memoria
 const usersDB = [];
 const secretsDB = [];
 
 // ==========================================
-// Login Seguro (Bcrypt)
+// 2. LOGIN SEGURO (BCRYPT)
 // ==========================================
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body;
   try {
+    // Hasheo de contraseña
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    //Generamos un par de llaves de firma para el usuario al registrarse
-    const { privateKey, publicKey } = crypto.generateKeyPairSync("ec", {
-      namedCurve: "secp256k1",
-      publicKeyEncoding: { type: "spki", format: "pem" },
-      privateKeyEncoding: { type: "pkcs8", format: "pem" },
-    });
+    if (usersDB.find((u) => u.username === username)) {
+      return res.status(400).json({ error: "El usuario ya existe" });
+    }
 
     usersDB.push({
       username,
-      password: hashedPassword, // Guardamos solo el hash
-      publicKey, // Guardamos su llave pública para verificar sus firmas
+      password: hashedPassword, // Solo se guarda el hash
+      publicKey: null, // La llave pública se generará en el login
     });
 
-    // Le devolvemos su llave privada al usuario
-    res.json({ message: "Usuario registrado", userPrivateKey: privateKey });
+    console.log(`\n--- [SERVER] Registrando nuevo usuario: ${username} ---`);
+    console.log(`1. Usuario registrado: ${username}, Hash: ${hashedPassword}`);
+
+    res.json({ message: "Usuario registrado exitosamente" });
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Error al registrar" });
   }
 });
@@ -73,32 +82,46 @@ app.post("/api/login", async (req, res) => {
 
   if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
-  // Verificación de Bcrypt
   const validPassword = await bcrypt.compare(password, user.password);
-
   if (!validPassword)
     return res.status(401).json({ error: "Contraseña incorrecta" });
 
-  res.json({ message: "Login exitoso", username: user.username });
+  // Se genera un nuevo par de llaves para la sesión.
+  // La llave pública se actualiza en la "BD" y la privada se envía al cliente.
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+
+  user.publicKey = publicKey; // Se actualiza la llave pública del usuario
+
+  console.log(`\n--- [SERVER] Usuario autenticado: ${username} ---`);
+  console.log(
+    `1. Usuario autenticado y nueva llave pública asignada a ${username}`
+  );
+
+  res.json({
+    message: "Login exitoso",
+    username: user.username,
+    userPrivateKey: privateKey,
+  });
 });
 
-// Endpoint para obtener la llave pública del servidor (para cifrado híbrido)
 app.get("/api/server-public-key", (req, res) => {
   res.send(SERVER_PUBLIC_KEY);
 });
 
 // ==========================================
-// Endpoint Principal : Recibe Híbrido, Verifica Firma, Guarda Cifrado
+// 3. DEFENSA EN PROFUNDIDAD (CIFRADO HÍBRIDO)
 // ==========================================
 app.post("/api/vault/save", (req, res) => {
   try {
     const { username, encryptedKey, iv, encryptedData, signature } = req.body;
-    console.log(
-      `\n--- Recibiendo Secreto de ${username} (Cifrado Híbrido) ---`
-    );
+    console.log(`\n--- [SERVER] Recibiendo Secreto de ${username} ---`);
 
-    // A. Defensa en Profundidad: Descifrar el Sobre Digital
-    // 1. Descifrar la llave AES temporal usando la llave privada del servidor
+    // A. DESCIFRADO HÍBRIDO (El Sobre Digital)
+    // 1. Descifrar la llave AES simétrica usando la llave privada RSA del servidor
     const aesKeyBuffer = crypto.privateDecrypt(
       {
         key: SERVER_PRIVATE_KEY,
@@ -108,7 +131,9 @@ app.post("/api/vault/save", (req, res) => {
       Buffer.from(encryptedKey, "base64")
     );
 
-    // 2. Descifrar el mensaje usando la llave AES recuperada
+    console.log("1. Llave AES recuperada exitosamente.");
+
+    // 2. Descifrar el mensaje (Secreto) usando la llave AES recuperada
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       aesKeyBuffer,
@@ -117,21 +142,24 @@ app.post("/api/vault/save", (req, res) => {
     let decryptedSecret = decipher.update(encryptedData, "base64", "utf8");
     decryptedSecret += decipher.final("utf8");
 
-    console.log(
-      "1. [Híbrido] Dato descifrado en memoria (Texto plano):",
-      decryptedSecret
-    );
+    console.log("2. Secreto descifrado:", decryptedSecret);
 
-    // B. Autenticidad: Verificar Firma Digital
+    // B. AUTENTICIDAD Y NO REPUDIO (Verificar Firma)
     const user = usersDB.find((u) => u.username === username);
+
+    // Verificación de firma
     const verify = crypto.createVerify("sha256");
     verify.write(decryptedSecret);
     verify.end();
 
-    const isVerified = verify.verify(user.publicKey, signature, "hex");
+    const isVerified = verify.verify(
+      user.publicKey,
+      Buffer.from(signature, "hex")
+    );
+
     console.log(
-      "2. [Firma] Verificación de autoría:",
-      isVerified ? "AUTÉNTICO" : "FALSO"
+      "3. Verificación de Firma Digital:",
+      isVerified ? "VÁLIDA" : "INVÁLIDA"
     );
 
     if (!isVerified)
@@ -139,7 +167,7 @@ app.post("/api/vault/save", (req, res) => {
         .status(403)
         .json({ error: "Firma inválida. Integridad comprometida." });
 
-    // C. Datos en Reposo: Cifrar para la Base de Datos
+    // C. DATOS EN REPOSO (Cifrado Simétrico para BD)
     const storageIv = crypto.randomBytes(16);
     const cipherStorage = crypto.createCipheriv(
       "aes-256-cbc",
@@ -154,27 +182,30 @@ app.post("/api/vault/save", (req, res) => {
       owner: username,
       secret_cifrado: secretForDb,
       iv: storageIv.toString("hex"),
-      signature: signature,
+      signature: signature, // Se guarda  la firma para auditoría
     };
 
     secretsDB.push(newRecord);
-    console.log("3. [BD] Registro guardado cifrado:", newRecord);
 
-    res.json({ status: "Secreto resguardado con éxito en la bóveda." });
+    res.json({ status: "Secreto guardado y verificado." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error procesando la seguridad." });
+    console.error("Error en procesamiento:", error.message);
+    res.status(500).json({ error: "Error criptográfico en servidor." });
   }
 });
 
-// Endpoint extra: Ver la BD
+// Endpoint para auditoría (Mostrar datos cifrados)
 app.get("/api/debug/db", (req, res) => {
   res.json({
-    usuarios: usersDB.map((u) => ({ ...u, publicKey: "..." })),
+    usuarios: usersDB.map((u) => ({
+      username: u.username,
+      passwordHash: u.password.substring(0, 20) + "...",
+    })),
     secretos: secretsDB,
   });
 });
 
-app.listen(3000, () =>
-  console.log("Servidor Bóveda corriendo en http://localhost:3000")
+const PORT = 3000;
+app.listen(PORT, () =>
+  console.log(`Servidor corriendo en http://localhost:${PORT}`)
 );

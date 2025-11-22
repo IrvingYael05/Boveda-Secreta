@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bóveda Corporativa Segura</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .code-block {
+        font-family: "Courier New", monospace;
+        font-size: 0.85rem;
+      }
+      .step-success {
+        border-left: 4px solid #10b981;
+        background: #ecfdf5;
+      }
+      .step-process {
+        border-left: 4px solid #3b82f6;
+        background: #eff6ff;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
+    <div class="container mx-auto p-4 max-w-4xl">
+      <header class="mb-8 text-center border-b border-slate-700 pb-4">
+        <h1 class="text-3xl font-bold text-emerald-400 tracking-wider">
+          Bóveda Corporativa Segura
+        </h1>
+        <p class="text-slate-400 mt-2">
+          Sistema de Gestión de Secretos Industriales
+        </p>
+      </header>
+
+      <!-- SECCIÓN LOGIN / REGISTRO -->
+      <div
+        id="authSection"
+        class="bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-700"
+      >
+        <h2 class="text-xl font-semibold mb-4 text-white">
+          Autenticación de Usuarios
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input
+            type="text"
+            id="username"
+            placeholder="Usuario (ej. CEO)"
+            class="bg-slate-700 border border-slate-600 p-3 rounded text-white focus:outline-none focus:border-emerald-500"
+          />
+          <input
+            type="password"
+            id="password"
+            placeholder="Contraseña"
+            class="bg-slate-700 border border-slate-600 p-3 rounded text-white focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+        <div class="mt-4 flex gap-3">
+          <button
+            onclick="handleRegister()"
+            class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded font-medium transition"
+          >
+            Registrar
+          </button>
+          <button
+            onclick="handleLogin()"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium transition"
+          >
+            Iniciar Sesión
+          </button>
+        </div>
+        <p id="authMsg" class="mt-3 text-sm text-yellow-400 h-5"></p>
+      </div>
+
+      <!-- SECCIÓN BÓVEDA -->
+      <div id="vaultSection" class="hidden space-y-6 mt-6">
+        <!-- FORMULARIO DE SECRETO -->
+        <div
+          class="bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-700 relative overflow-hidden"
+        >
+          <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-white">
+              Ingresar Nuevo Secreto Industrial
+            </h2>
+            <span
+              id="userDisplay"
+              class="text-sm bg-slate-700 px-3 py-1 rounded text-emerald-300"
+            ></span>
+          </div>
+
+          <textarea
+            id="secretInput"
+            rows="4"
+            class="w-full bg-slate-900 border border-slate-600 p-3 rounded text-white focus:outline-none focus:border-emerald-500 font-mono"
+            placeholder="Escribe aquí la fórmula secreta o patente..."
+          ></textarea>
+
+          <button
+            onclick="processAndSendSecret()"
+            class="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded font-bold tracking-wide transition shadow-lg flex justify-center items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            PROTEGER Y ENVIAR
+          </button>
+        </div>
+
+        <!-- VISUALIZADOR DE BD -->
+        <div
+          class="bg-slate-800 p-6 rounded-lg shadow-xl 1border border-slate-700 relative overflow-hidden"
+        >
+          <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-white">
+              BD Servidor: Datos en Reposo
+            </h2>
+            <button
+              onclick="refreshDB()"
+              class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded"
+            >
+              Actualizar
+            </button>
+          </div>
+          <div id="dbView" class="grid gap-3"></div>
+        </div>
+
+        <!-- VISUALIZACIÓN DE SEGURIDAD (LOGS) -->
+        <div
+          class="bg-black p-4 rounded-lg border border-slate-700 font-mono text-xs md:text-sm text-green-500 overflow-x-auto"
+        >
+          <h3 class="text-slate-400 mb-2 border-b border-slate-800 pb-1">
+            Consola de Logs de Seguridad Criptográfica
+          </h3>
+          <div id="cryptoLog" class="space-y-2 h-64 overflow-y-auto pr-2">
+            <div class="text-slate-500">Esperando acciones...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_URL = "http://localhost:3000/api";
+      let currentUser = null;
+      let userPrivateKey = null;
+
+      // ==========================================
+      // UTILIDADES CRIPTOGRÁFICAS (Web Crypto API)
+      // ==========================================
+
+      // Convertir PEM a ArrayBuffer (para importar llaves)
+      function pemToArrayBuffer(pem) {
+        const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "");
+        const binary = atob(b64);
+        const buffer = new ArrayBuffer(binary.length);
+        const view = new Uint8Array(buffer);
+        for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+        return buffer;
+      }
+
+      // Convertir ArrayBuffer a Base64 (para enviar)
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++)
+          binary += String.fromCharCode(bytes[i]);
+        return btoa(binary);
+      }
+
+      function arrayBufferToHex(buffer) {
+        return Array.from(new Uint8Array(buffer))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      function logStep(title, detail, type = "process") {
+        const logDiv = document.getElementById("cryptoLog");
+        const entry = document.createElement("div");
+        entry.className = `p-2 rounded ${
+          type === "success"
+            ? "bg-green-900/30 text-green-300"
+            : "bg-blue-900/20 text-blue-300"
+        } mb-1`;
+        entry.innerHTML = `<strong class="block text-xs uppercase opacity-70">${title}</strong><div class="truncate opacity-90">${detail}</div>`;
+        logDiv.appendChild(entry);
+        logDiv.scrollTop = logDiv.scrollHeight;
+      }
+
+      // ==========================================
+      // LÓGICA DE NEGOCIO
+      // ==========================================
+
+      async function handleRegister() {
+        const user = document.getElementById("username").value;
+        const pass = document.getElementById("password").value;
+        if (!user || !pass) return alert("Completa los campos");
+
+        try {
+          logStep("REQ REGISTRO", "Enviando solicitud a servidor...");
+          const res = await fetch(`${API_URL}/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: user, password: pass }),
+          });
+          const data = await res.json();
+
+          if (res.ok) {
+            logStep(
+              "REGISTRO EXITOSO",
+              "Usuario creado. Ahora inicia sesión.",
+              "success"
+            );
+            document.getElementById("authMsg").textContent =
+              "Usuario registrado. Por favor, inicia sesión.";
+          } else {
+            document.getElementById("authMsg").textContent =
+              data.error || "Error en el registro.";
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Error en registro");
+        }
+      }
+
+      async function handleLogin() {
+        const user = document.getElementById("username").value;
+        const pass = document.getElementById("password").value;
+        if (!user || !pass) return alert("Completa los campos");
+
+        try {
+          logStep("REQ LOGIN", "Enviando credenciales...");
+          const res = await fetch(`${API_URL}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: user, password: pass }),
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            logStep("LOGIN FALLIDO", data.error, "success");
+            document.getElementById("authMsg").textContent = data.error;
+            return;
+          }
+
+          if (data.userPrivateKey) {
+            logStep(
+              "KEY IMPORT",
+              "Recibiendo nueva llave privada de sesión..."
+            );
+            const keyBuffer = pemToArrayBuffer(data.userPrivateKey);
+            userPrivateKey = await window.crypto.subtle.importKey(
+              "pkcs8",
+              keyBuffer,
+              { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+              true,
+              ["sign"]
+            );
+            currentUser = user;
+            logStep(
+              "LOGIN EXITOSO",
+              `Usuario: ${currentUser}. Llave de sesión en memoria.`,
+              "success"
+            );
+            showVault();
+          } else {
+            document.getElementById("authMsg").textContent =
+              data.error || "Error desconocido en login.";
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Error en el proceso de login.");
+        }
+      }
+
+      function showVault() {
+        document.getElementById("authSection").classList.add("hidden");
+        document.getElementById("vaultSection").classList.remove("hidden");
+        document.getElementById("userDisplay").textContent = currentUser;
+        refreshDB();
+      }
+
+      // ==========================================
+      // EL NÚCLEO: CIFRADO HÍBRIDO + FIRMA
+      // ==========================================
+      async function processAndSendSecret() {
+        const secretText = document.getElementById("secretInput").value;
+        if (!secretText) return alert("Escribe un secreto");
+        if (!userPrivateKey)
+          return alert("No hay llave privada de usuario cargada");
+
+        try {
+          logStep("INICIO PROCESO", "Preparando envío seguro...");
+
+          // PASO 1: Obtener Llave Pública del Servidor
+          const pubKeyRes = await fetch(`${API_URL}/server-public-key`);
+          const serverPubPem = await pubKeyRes.text();
+          const serverPubBuffer = pemToArrayBuffer(serverPubPem);
+          const serverPublicKey = await window.crypto.subtle.importKey(
+            "spki",
+            serverPubBuffer,
+            { name: "RSA-OAEP", hash: "SHA-256" },
+            true,
+            ["encrypt"]
+          );
+          logStep("HANDSHAKE", "Llave Pública Servidor obtenida");
+
+          // PASO 2: Generar Llave Simétrica (AES) Temporal
+          const aesKey = await window.crypto.subtle.generateKey(
+            { name: "AES-CBC", length: 256 },
+            true,
+            ["encrypt", "decrypt"]
+          );
+          // Exportar AES Key a Raw para encriptarla luego
+          const aesKeyRaw = await window.crypto.subtle.exportKey("raw", aesKey);
+          logStep("GEN KEY", "Llave AES-256 (Sesión) generada en memoria");
+
+          // PASO 3: Cifrar Datos con AES (Simétrico)
+          const iv = window.crypto.getRandomValues(new Uint8Array(16));
+          const encoder = new TextEncoder();
+          const encryptedDataBuffer = await window.crypto.subtle.encrypt(
+            { name: "AES-CBC", iv: iv },
+            aesKey,
+            encoder.encode(secretText)
+          );
+          const encryptedDataB64 = arrayBufferToBase64(encryptedDataBuffer);
+          logStep(
+            "CIFRADO AES",
+            `Datos cifrados: ${encryptedDataB64.substring(0, 20)}...`
+          );
+
+          // PASO 4: Cifrar la Llave AES con RSA (Sobre Digital)
+          const encryptedKeyBuffer = await window.crypto.subtle.encrypt(
+            { name: "RSA-OAEP" },
+            serverPublicKey,
+            aesKeyRaw
+          );
+          const encryptedKeyB64 = arrayBufferToBase64(encryptedKeyBuffer);
+          logStep("SOBRE DIGITAL", "Llave AES cifrada con RSA del Servidor");
+
+          // PASO 5: Firmar el mensaje original (No Repudio)
+          const signatureBuffer = await window.crypto.subtle.sign(
+            "RSASSA-PKCS1-v1_5",
+            userPrivateKey,
+            encoder.encode(secretText)
+          );
+          const signatureHex = arrayBufferToHex(signatureBuffer);
+          logStep(
+            "FIRMA DIGITAL",
+            `Integridad sellada: ${signatureHex.substring(0, 20)}...`,
+            "success"
+          );
+
+          // PASO 6: Enviar Payload
+          const payload = {
+            username: currentUser,
+            encryptedKey: encryptedKeyB64,
+            iv: arrayBufferToBase64(iv),
+            encryptedData: encryptedDataB64,
+            signature: signatureHex,
+          };
+
+          const res = await fetch(`${API_URL}/vault/save`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+
+          if (res.ok) {
+            alert("¡Secreto enviado y protegido exitosamente!");
+            document.getElementById("secretInput").value = "";
+            refreshDB();
+          } else {
+            alert("Error: " + json.error);
+          }
+        } catch (e) {
+          console.error(e);
+          alert("Error criptográfico en cliente: " + e.message);
+        }
+      }
+
+      async function refreshDB() {
+        const res = await fetch(`${API_URL}/debug/db`);
+        const data = await res.json();
+        const dbDiv = document.getElementById("dbView");
+        dbDiv.innerHTML = "";
+
+        data.secretos.forEach((s) => {
+          const el = document.createElement("div");
+          el.className =
+            "bg-slate-900 p-3 rounded text-xs border border-slate-700";
+          el.innerHTML = `
+                    <div class="flex justify-between text-emerald-500 font-bold">
+                        <span>ID: ${s.id}</span>
+                        <span>Dueño: ${s.owner}</span>
+                    </div>
+                    <div class="mt-2 text-slate-400">
+                        <div><span class="text-slate-500">Cifrado:</span> ${s.secret_cifrado.substring(
+                          0,
+                          40
+                        )}...</div>
+                        <div><span class="text-slate-500">IV:</span> ${
+                          s.iv
+                        }</div>
+                        <div class="mt-1 text-blue-400 font-mono text-[10px] break-all">Firma: ${s.signature.substring(
+                          0,
+                          50
+                        )}...</div>
+                    </div>
+                `;
+          dbDiv.appendChild(el);
+        });
+      }
+    </script>
+  </body>
+</html>
