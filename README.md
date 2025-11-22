@@ -73,7 +73,7 @@ El sistema permite a un usuario (ej. Directivo) enviar un secreto industrial al 
     * Escribe un secreto y presiona "Proteger y Enviar".
     * Observa los logs de seguridad en la consola visual de la derecha.
 
-## 📊 Diagrama de Secuencia
+## Diagrama de Secuencia
 
 ```mermaid
 sequenceDiagram
