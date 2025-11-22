@@ -67,7 +67,7 @@ El sistema permite a un usuario (ej. Directivo) enviar un secreto industrial al 
     Verás el mensaje: `Servidor corriendo en http://localhost:3000`
 
 4.  **Usar la Aplicación**
-    * Abre tu navegador web e ingresa a: **`http://localhost:3000`**
+    * Abre tu navegador web e ingresa a la ubicación del archivo **index.html**
     * Registra un usuario.
     * Inicia sesión.
     * Escribe un secreto y presiona "Proteger y Enviar".
